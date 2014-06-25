@@ -1,2 +1,9 @@
 syntax: glob
 .DS_Store
+Microchip
+build
+dist
+private
+Apps
+
+
