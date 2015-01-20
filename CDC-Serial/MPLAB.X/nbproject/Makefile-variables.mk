@@ -1,0 +1,20 @@
+#
+# Generated - do not edit!
+#
+# NOCDDL
+#
+CND_BASEDIR=`pwd`
+# PIC18F47J53_Clicker configuration
+CND_ARTIFACT_DIR_PIC18F47J53_Clicker=dist/PIC18F47J53_Clicker/production
+CND_ARTIFACT_NAME_PIC18F47J53_Clicker=MPLAB.X.production.hex
+CND_ARTIFACT_PATH_PIC18F47J53_Clicker=dist/PIC18F47J53_Clicker/production/MPLAB.X.production.hex
+CND_PACKAGE_DIR_PIC18F47J53_Clicker=${CND_DISTDIR}/PIC18F47J53_Clicker/package
+CND_PACKAGE_NAME_PIC18F47J53_Clicker=mplab.x.tar
+CND_PACKAGE_PATH_PIC18F47J53_Clicker=${CND_DISTDIR}/PIC18F47J53_Clicker/package/mplab.x.tar
+# PIC18F87J50_Clicker2 configuration
+CND_ARTIFACT_DIR_PIC18F87J50_Clicker2=dist/PIC18F87J50_Clicker2/production
+CND_ARTIFACT_NAME_PIC18F87J50_Clicker2=MPLAB.X.production.hex
+CND_ARTIFACT_PATH_PIC18F87J50_Clicker2=dist/PIC18F87J50_Clicker2/production/MPLAB.X.production.hex
+CND_PACKAGE_DIR_PIC18F87J50_Clicker2=${CND_DISTDIR}/PIC18F87J50_Clicker2/package
+CND_PACKAGE_NAME_PIC18F87J50_Clicker2=mplab.x.tar
+CND_PACKAGE_PATH_PIC18F87J50_Clicker2=${CND_DISTDIR}/PIC18F87J50_Clicker2/package/mplab.x.tar

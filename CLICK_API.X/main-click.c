@@ -1,5 +1,5 @@
 /********************************************************************
- FileName:      main.c
+ FileName:      main-click.c
  Processor:     PIC18F47J53
  Hardware:      Mikroe PIC18 Clicker
  Complier:      Microchip C18 (for PIC18), 
@@ -10,54 +10,40 @@
 #include "HardwareProfile.h"
 #include "./USB/usb_function_hid.h"
 #include "pps.h"
-//#include <i2c.h>
 
 // PIC18F47J53 configuration
- #pragma config WDTEN = OFF          //WDT disabled (enabled by SWDTEN bit)
- #pragma config PLLDIV = 4           //Divide by 4 (16 MHz oscillator input)
- #pragma config STVREN = ON          //stack overflow/underflow reset enabled
- #pragma config XINST = OFF          //Extended instruction set disabled
- #pragma config CPUDIV = OSC4_PLL6   // CPU system clock divide
- #pragma config CP0 = OFF            //Program memory is not code-protected
- #pragma config OSC = HSPLL          //HS oscillator, PLL enabled, HSPLL used by USB
- #pragma config FCMEN = ON          //Fail-Safe Clock Monitor disabled
- #pragma config IESO = OFF           //Two-Speed Start-up disabled
- #pragma config WDTPS = 32768        //1:32768
- #pragma config DSWDTOSC = INTOSCREF //DSWDT uses INTOSC/INTRC as clock
- #pragma config RTCOSC = T1OSCREF    //RTCC uses T1OSC/T1CKI as clock
- #pragma config DSBOREN = OFF        //Zero-Power BOR disabled in Deep Sleep
- #pragma config DSWDTEN = OFF        //Disabled
- #pragma config DSWDTPS = 8192       //1:8,192 (8.5 seconds)
- #pragma config IOL1WAY = OFF        //IOLOCK bit can be set and cleared
- #pragma config MSSP7B_EN = MSK7     //7 Bit address masking
- #pragma config WPFP = PAGE_1        //Write Protect Program Flash Page 0
- #pragma config WPEND = PAGE_0       //Start protection at page 0
- #pragma config WPCFG = OFF          //Write/Erase last page protect Disabled
- #pragma config WPDIS = OFF          //WPFP[5:0], WPEND, and WPCFG bits ignored
+ #pragma config WDTEN = OFF          // WDT disabled (enabled by SWDTEN bit)
+ #pragma config PLLDIV = 4           // Divide by 4 (16 MHz oscillator input)
+ #pragma config STVREN = ON          // stack overflow/underflow reset enabled
+ #pragma config XINST = OFF          // Extended instruction set disabled
+ #pragma config CPUDIV = OSC4_PLL6   // CPU system clock divide 
+ #pragma config CP0 = OFF            // Program memory is not code-protected
+ #pragma config OSC = HSPLL          // HS oscillator, PLL enabled, HSPLL used by USB
+ #pragma config FCMEN = ON           // Fail-Safe Clock Monitor disabled
+ #pragma config IESO = OFF           // Two-Speed Start-up disabled
+ #pragma config WDTPS = 32768        // 1:32768
+ #pragma config DSWDTOSC = INTOSCREF // DSWDT uses INTOSC/INTRC as clock
+ #pragma config RTCOSC = T1OSCREF    // RTCC uses T1OSC/T1CKI as clock
+ #pragma config DSBOREN = OFF        // Zero-Power BOR disabled in Deep Sleep
+ #pragma config DSWDTEN = OFF        // Disabled
+ #pragma config DSWDTPS = 8192       // 1:8,192 (8.5 seconds)
+ #pragma config IOL1WAY = OFF        // IOLOCK bit can be set and cleared
+ #pragma config MSSP7B_EN = MSK7     // 7 Bit address masking
+ #pragma config WPFP = PAGE_1        // Write Protect Program Flash Page 0
+ #pragma config WPEND = PAGE_0       // Start protection at page 0
+ #pragma config WPCFG = OFF          // Write/Erase last page protect Disabled
+ #pragma config WPDIS = OFF          // WPFP[5:0], WPEND, and WPCFG bits ignored
  #pragma config CFGPLLEN = OFF
 
 
 /** VARIABLES ******************************************************/
-#if defined(__18CXX)
-    #pragma udata
+#pragma udata
 
-    #pragma udata
-#endif
-
-#if defined(__XC8)
-        #define RX_DATA_BUFFER_ADDRESS
-        #define RX_DATA_BUFFER_ADDRESS
-#else
-    #define RX_DATA_BUFFER_ADDRESS
-    #define TX_DATA_BUFFER_ADDRESS
-#endif
+#define RX_DATA_BUFFER_ADDRESS
+#define TX_DATA_BUFFER_ADDRESS
 
 unsigned char RxBuffer[64] RX_DATA_BUFFER_ADDRESS;
 unsigned char TxBuffer[64] TX_DATA_BUFFER_ADDRESS;
-
-#if defined(__18CXX)
-#pragma udata
-#endif
 
 USB_HANDLE USBOutHandle = 0;    //USB handle.  Must be initialized to 0 at startup.
 USB_HANDLE USBInHandle = 0;     //USB handle.  Must be initialized to 0 at startup.
@@ -65,101 +51,28 @@ BOOL blinkStatusValid = TRUE;
 
 /** PRIVATE PROTOTYPES *********************************************/
 void BlinkUSBStatus(void);
-BOOL Switch2IsPressed(void);
-BOOL Switch3IsPressed(void);
+void High_ISR(void);
 static void InitializeSystem(void);
 void ProcessIO(void);
-void YourHighPriorityISRCode();
-void YourLowPriorityISRCode();
 void USBCBSendResume(void);
 WORD_VAL ReadPOT(void);
 
-/** VECTOR REMAPPING ***********************************************/
-#if defined(__18CXX)
-	//On PIC18 devices, addresses 0x00, 0x08, and 0x18 are used for
-	//the reset, high priority interrupt, and low priority interrupt
-	//vectors.  However, the Microchip HID bootloader occupies the
-	//0x00-0xFFF program memory region.  Therefore, the bootloader code remaps 
-	//these vectors to new locations as indicated below.  This remapping is 
-	//only necessary if you wish to be able to (optionally) program the hex file 
-	//generated from this project with the USB bootloader.  
-	#define REMAPPED_RESET_VECTOR_ADDRESS		0x1000
-	#define REMAPPED_HIGH_INTERRUPT_VECTOR_ADDRESS	0x1008
-	#define REMAPPED_LOW_INTERRUPT_VECTOR_ADDRESS	0x1018
-	#define APP_VERSION_ADDRESS                     0x1016 //Fixed location, so the App FW image version can be read by the bootloader.
-	#define APP_SIGNATURE_ADDRESS                   0x1006 //Signature location that must be kept at blaknk value (0xFFFF) in this project (has special purpose for bootloader).
+#pragma code HIGH_INTERRUPT_VECTOR = 0x08
+void High_Vector (void)
+{
+     _asm goto High_ISR _endasm
+}
 
-    //--------------------------------------------------------------------------
-    //Application firmware image version values, as reported to the bootloader
-    //firmware.  These are useful so the bootloader can potentially know if the
-    //user is trying to program an older firmware image onto a device that
-    //has already been programmed with a with a newer firmware image.
-    //Format is APP_FIRMWARE_VERSION_MAJOR.APP_FIRMWARE_VERSION_MINOR.
-    //The valid minor version is from 00 to 99.  Example:
-    //if APP_FIRMWARE_VERSION_MAJOR == 1, APP_FIRMWARE_VERSION_MINOR == 1,
-    //then the version is "1.01"
-    #define APP_FIRMWARE_VERSION_MAJOR  1   //valid values 0-255
-    #define APP_FIRMWARE_VERSION_MINOR  0   //valid values 0-99
-    //--------------------------------------------------------------------------
-	
-	#pragma romdata AppVersionAndSignatureSection = APP_VERSION_ADDRESS
-	ROM unsigned char AppVersion[2] = {APP_FIRMWARE_VERSION_MINOR, APP_FIRMWARE_VERSION_MAJOR};
-	#pragma romdata AppSignatureSection = APP_SIGNATURE_ADDRESS
-	ROM unsigned short int SignaturePlaceholder = 0xFFFF;
-	
-	#pragma code HIGH_INTERRUPT_VECTOR = 0x08
-	void High_ISR (void)
-	{
-	     _asm goto REMAPPED_HIGH_INTERRUPT_VECTOR_ADDRESS _endasm
-	}
-	#pragma code LOW_INTERRUPT_VECTOR = 0x18
-	void Low_ISR (void)
-	{
-	     _asm goto REMAPPED_LOW_INTERRUPT_VECTOR_ADDRESS _endasm
-	}
-	extern void _startup (void);        // See c018i.c in your C18 compiler dir
-	#pragma code REMAPPED_RESET_VECTOR = REMAPPED_RESET_VECTOR_ADDRESS
-	void _reset (void)
-	{
-	    _asm goto _startup _endasm
-	}
-	#pragma code REMAPPED_HIGH_INTERRUPT_VECTOR = REMAPPED_HIGH_INTERRUPT_VECTOR_ADDRESS
-	void Remapped_High_ISR (void)
-	{
-	     _asm goto YourHighPriorityISRCode _endasm
-	}
-	#pragma code REMAPPED_LOW_INTERRUPT_VECTOR = REMAPPED_LOW_INTERRUPT_VECTOR_ADDRESS
-	void Remapped_Low_ISR (void)
-	{
-	     _asm goto YourLowPriorityISRCode _endasm
-	}
-	#pragma code
-	
-	
-	//These are your actual interrupt handling routines.
-	#pragma interrupt YourHighPriorityISRCode
-	void YourHighPriorityISRCode()
-	{
-            //#if defined(USB_INTERRUPT)
-            USBDeviceTasks();
-	
-	}	
-
-        #pragma interruptlow YourLowPriorityISRCode
-	void YourLowPriorityISRCode()
-	{
-	}	
-#endif
-
+#pragma code
+#pragma interrupt High_ISR
+void High_ISR (void)
+{
+    //#if defined(USB_INTERRUPT)
+    USBDeviceTasks();
+}
 
 /** DECLARATIONS ***************************************************/
-#if defined(__18CXX)
-#pragma code
-#endif
 
-/********************************************************************
- * Function:        void main(void)
- *******************************************************************/
 void main(void)
 {   
     InitializeSystem();
@@ -203,10 +116,6 @@ void InitializeSystem(void)
         OSCTUNEbits.PLLEN = 1;  //Enable the PLL and wait 2+ms until the PLL locks before enabling USB module
         while(pll_startup_counter--);
     }
-
-    //OSCCONbits.IRCF = 0b111;                // Int RC Freq. = 8MHz
-    //OSCCONbits.SCS = 0b11;                  // INTOSC -> Core Clock
-
     //Device switches over automatically to PLL output after PLL is locked and ready.
 
     //use the ANCONx registers to control this, which is different from other devices which
@@ -224,9 +133,9 @@ void InitializeSystem(void)
 
     // Initialize the PWM port
     P_PWM = 0;
-    T_PWM = 0;       // make it an output
-    P_SCL = 1;
-    T_SCL = 1;
+    T_PWM = 1;      // make it an input temporarily 
+    P_SCL = 0;
+    T_SCL = 1;      // make it an input temporarily
 
     //initialize the variable holding the handle for the last transmission
     USBOutHandle = 0;
@@ -234,13 +143,13 @@ void InitializeSystem(void)
 
     blinkStatusValid = TRUE;
     
-    USBDeviceInit();	//usb_device.c.  Initializes USB module SFRs and firmware
+    USBDeviceInit();	// Initializes USB module SFRs and firmware
     				
 } // end InitializeSystem
 
 
 // I2C2 utilities --------------------------------------------------------------
-#define TIMEOUT         500
+#define TIMEOUT         2000
 #define NotAckI2C2()    SSP2CON2bits.ACKDT=1, SSP2CON2bits.ACKEN=1;
 #define AckI2C2()       SSP2CON2bits.ACKDT=0, SSP2CON2bits.ACKEN=1;
 #define CloseI2C2()     SSP2CON1 &= 0xDF
@@ -282,9 +191,6 @@ char ReadI2C2TO( void)
 } // read I2C2 TO
 
 
-
-
-
 /********************************************************************
  * Function:        void ProcessIO(void)
  *
@@ -293,7 +199,6 @@ char ReadI2C2TO( void)
  * Response:        echo command if successful
  *                  00   if unrecognized
  *                  Fx   error code 
- *
  *******************************************************************/
 void ProcessIO(void)
 {   
@@ -663,10 +568,6 @@ I2CStuck:
 /******************************************************************************
  * Function:        WORD_VAL ReadPOT(void)
  *
- * PreCondition:    None
- *
- * Input:           None
- *
  * Output:          WORD_VAL - the 10-bit right justified POT value
  *
  * Side Effects:    ADC buffer value updated
@@ -693,14 +594,6 @@ WORD_VAL ReadPOT(void)
 
 /********************************************************************
  * Function:        void BlinkUSBStatus(void)
- *
- * PreCondition:    None
- *
- * Input:           None
- *
- * Output:          None
- *
- * Side Effects:    None
  *
  * Overview:        BlinkUSBStatus turns on and off LEDs 
  *                  corresponding to the USB device state.
@@ -774,7 +667,5 @@ void BlinkUSBStatus(void)
         }
     }
 } // end BlinkUSBStatus
-
-
 
 /** EOF main.c *************************************************/
